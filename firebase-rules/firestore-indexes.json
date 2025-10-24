@@ -1,0 +1,46 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "projects",
+      "queryScope": "Collection",
+      "fields": [
+        {
+          "fieldPath": "assignedUsers",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "reviews",
+      "queryScope": "Collection",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "approved-projects",
+      "queryScope": "Collection",
+      "fields": [
+        {
+          "fieldPath": "approvedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ]
+}

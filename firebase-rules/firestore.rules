@@ -1,0 +1,110 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Função para verificar se o usuário é Super Admin
+    function isSuperAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role.level == 0;
+    }
+
+    // Função para verificar se o usuário é Admin
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role.level <= 1;
+    }
+
+    // Função para verificar se o usuário tem uma permissão específica
+    function hasPermission(permission) {
+      return permission in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role.permissions;
+    }
+
+    // Função para verificar se o usuário está ativo
+    function isActive() {
+      let userStatus = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status;
+      return userStatus == 'active';
+    }
+
+    // Coleção de Usuários
+    match /users/{userId} {
+      // Ler: Usuário pode ler seus próprios dados, Admins podem ler todos
+      allow read: if request.auth.uid == userId || isAdmin();
+      
+      // Criar: Apenas Admins podem criar usuários
+      allow create: if isAdmin() && isActive();
+      
+      // Atualizar: Usuário pode atualizar seus próprios dados, Admins podem atualizar qualquer um
+      allow update: if (request.auth.uid == userId && isActive()) || (isAdmin() && isActive());
+      
+      // Deletar: Apenas Super Admin pode deletar usuários
+      allow delete: if isSuperAdmin() && isActive();
+    }
+
+    // Coleção de Cargos
+    match /roles/{roleId} {
+      // Ler: Todos os usuários autenticados podem ler
+      allow read: if request.auth != null && isActive();
+      
+      // Criar: Apenas Super Admin
+      allow create: if isSuperAdmin() && isActive();
+      
+      // Atualizar: Apenas Super Admin
+      allow update: if isSuperAdmin() && isActive();
+      
+      // Deletar: Apenas Super Admin (não pode deletar roles padrão)
+      allow delete: if isSuperAdmin() && isActive() && roleId != 'super-admin' && roleId != 'admin';
+    }
+
+    // Coleção de Projetos
+    match /projects/{projectId} {
+      // Ler: Usuário pode ler se está atribuído ou é Admin
+      allow read: if request.auth.uid in resource.data.assignedUsers || isAdmin();
+      
+      // Criar: Usuários com permissão ou Admins
+      allow create: if (hasPermission('create_projects') || isAdmin()) && isActive();
+      
+      // Atualizar: Usuário atribuído ou Admin
+      allow update: if (request.auth.uid in resource.data.assignedUsers || isAdmin()) && isActive();
+      
+      // Deletar: Apenas Admin
+      allow delete: if isAdmin() && isActive();
+
+      // Subcoleção de Comentários
+      match /comments/{commentId} {
+        allow read: if request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.assignedUsers || isAdmin();
+        allow create: if (request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.assignedUsers || isAdmin()) && isActive();
+        allow update: if request.auth.uid == resource.data.authorId && isActive();
+        allow delete: if request.auth.uid == resource.data.authorId || isAdmin();
+      }
+    }
+
+    // Coleção de Revisões
+    match /reviews/{reviewId} {
+      // Ler: Revisor ou autor ou Admin
+      allow read: if request.auth.uid == resource.data.submittedBy || hasPermission('view_reviews') || isAdmin();
+      
+      // Criar: Usuários com permissão
+      allow create: if (hasPermission('create_reviews') || isAdmin()) && isActive();
+      
+      // Atualizar: Revisor ou Admin
+      allow update: if (hasPermission('approve_projects') || isAdmin()) && isActive();
+      
+      // Deletar: Apenas Admin
+      allow delete: if isAdmin() && isActive();
+    }
+
+    // Coleção de Projetos Aprovados
+    match /approved-projects/{approvedProjectId} {
+      // Ler: Todos os usuários autenticados
+      allow read: if request.auth != null && isActive();
+      
+      // Criar: Revisor ou Admin
+      allow create: if (hasPermission('approve_projects') || isAdmin()) && isActive();
+      
+      // Deletar: Admin
+      allow delete: if isAdmin() && isActive();
+    }
+
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
