@@ -1,6 +1,6 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  reactStrictMode: true,
+import { setupDevPlatform } from '@cloudflare/next-on-pages/next-dev';
+
+let nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -10,8 +10,10 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Configuração para Cloudflare Pages (modo dinâmico)
-  trailingSlash: true,
-};
+}
 
-export default nextConfig;
+if (process.env.NODE_ENV === 'development') {
+  await setupDevPlatform();
+}
+
+export default nextConfig
